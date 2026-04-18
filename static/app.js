@@ -1,101 +1,100 @@
 (function () {
-  const logEl = document.getElementById("log");
-  const statusEl = document.getElementById("status");
-  const nameInput = document.getElementById("name");
-  const messageInput = document.getElementById("message");
-  const btnSend = document.getElementById("btnSend");
-  const btnName = document.getElementById("btnName");
+  const logEl      = document.getElementById("log");
+  const dotEl      = document.getElementById("dot");
+  const statusText = document.getElementById("status-text");
+  const nameInput  = document.getElementById("name");
+  const msgInput   = document.getElementById("message");
+  const btnSend    = document.getElementById("btnSend");
+  const btnName    = document.getElementById("btnName");
 
   const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-  const wsUrl = scheme + "://" + window.location.host + "/ws";
+  const wsUrl  = scheme + "://" + window.location.host + "/ws";
 
   let socket = null;
 
-  function appendLine(className, text) {
-    const div = document.createElement("div");
-    div.className = className;
-    div.textContent = text;
-    logEl.appendChild(div);
+  function addBubble(type, content) {
+    const wrap = document.createElement("div");
+
+    if (type === "chat") {
+      wrap.className = "bubble bubble-chat";
+      const sender = document.createElement("div");
+      sender.className = "sender";
+      sender.textContent = content.from || "?";
+      const text = document.createElement("div");
+      text.textContent = content.text || "";
+      wrap.appendChild(sender);
+      wrap.appendChild(text);
+    } else if (type === "system") {
+      wrap.className = "bubble bubble-system";
+      wrap.textContent = content;
+    } else {
+      wrap.className = "bubble bubble-error";
+      wrap.textContent = content;
+    }
+
+    logEl.appendChild(wrap);
     logEl.scrollTop = logEl.scrollHeight;
   }
 
   function setConnected(connected) {
-    if (connected) {
-      statusEl.textContent = "Conectado";
-      statusEl.className = "connected";
-      btnSend.disabled = false;
-    } else {
-      statusEl.textContent = "Desconectado";
-      statusEl.className = "disconnected";
-      btnSend.disabled = true;
-    }
+    dotEl.className      = "status-dot" + (connected ? " connected" : "");
+    statusText.textContent = connected ? "Conectado" : "Desconectado";
+    btnSend.disabled     = !connected;
   }
 
   function connect() {
     socket = new WebSocket(wsUrl);
 
-    socket.onopen = function () {
-      setConnected(true);
-    };
+    socket.onopen = () => setConnected(true);
 
-    socket.onclose = function () {
+    socket.onclose = () => {
       setConnected(false);
-      appendLine("msg-system", "[Conexão encerrada. Recarregue a página para reconectar.]");
+      addBubble("system", "Conexão encerrada. Recarregue para reconectar.");
     };
 
-    socket.onerror = function () {
-      appendLine("msg-error", "[Erro no WebSocket.]");
-    };
+    socket.onerror = () => addBubble("error", "Erro na conexão WebSocket.");
 
-    socket.onmessage = function (ev) {
+    socket.onmessage = (ev) => {
       let data;
-      try {
-        data = JSON.parse(ev.data);
-      } catch {
-        appendLine("msg-error", ev.data);
-        return;
+      try { data = JSON.parse(ev.data); }
+      catch { addBubble("error", ev.data); return; }
+
+      switch (data.type) {
+        case "welcome":
+          nameInput.placeholder = data.displayName || "Seu apelido...";
+          addBubble("system", "Você entrou na sala.");
+          break;
+        case "system":
+          addBubble("system", data.text || "");
+          break;
+        case "chat":
+          addBubble("chat", { from: data.from, text: data.text });
+          break;
+        case "error":
+          addBubble("error", data.text || "Erro");
+          break;
+        default:
+          addBubble("system", ev.data);
       }
-      if (data.type === "welcome") {
-        nameInput.placeholder = data.displayName || "Apelido";
-        appendLine("msg-system", "Bem-vindo. Seu id: " + (data.clientId || "?"));
-        return;
-      }
-      if (data.type === "system") {
-        appendLine("msg-system", data.text || "");
-        return;
-      }
-      if (data.type === "chat") {
-        appendLine("msg-chat", (data.from || "?") + ": " + (data.text || ""));
-        return;
-      }
-      if (data.type === "error") {
-        appendLine("msg-error", data.text || "Erro");
-        return;
-      }
-      appendLine("msg-system", ev.data);
     };
   }
 
-  btnSend.addEventListener("click", function () {
+  btnSend.addEventListener("click", () => {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    const text = messageInput.value.trim();
+    const text = msgInput.value.trim();
     if (!text) return;
-    socket.send(JSON.stringify({ type: "chat", text: text }));
-    messageInput.value = "";
-    messageInput.focus();
+    socket.send(JSON.stringify({ type: "chat", text }));
+    msgInput.value = "";
+    msgInput.focus();
   });
 
-  btnName.addEventListener("click", function () {
+  btnName.addEventListener("click", () => {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    const name = nameInput.value.trim();
-    socket.send(JSON.stringify({ type: "set_name", name: name }));
+    socket.send(JSON.stringify({ type: "set_name", name: nameInput.value.trim() }));
   });
 
-  messageInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      btnSend.click();
-    }
+  msgInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); btnSend.click(); }
   });
 
   connect();

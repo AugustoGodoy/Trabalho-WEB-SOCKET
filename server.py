@@ -2,6 +2,7 @@
 Servidor WebSocket com Tornado: chat em sala única (broadcast).
 """
 import json
+import os
 import uuid
 
 import tornado.ioloop
@@ -12,12 +13,14 @@ import tornado.websocket
 MAX_MESSAGE_LEN = 2000
 MAX_NAME_LEN = 40
 
+DEFAULT_PORT = 8080
+PORT = int(os.environ.get("PORT", str(DEFAULT_PORT)))
+
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     clients: set["ChatSocketHandler"] = set()
 
     def check_origin(self, origin: str) -> bool:
-        # Permite conexões de qualquer origem em dev (ajuste em produção).
         return True
 
     def open(self) -> None:
@@ -133,8 +136,12 @@ def make_app() -> tornado.web.Application:
 
 def main() -> None:
     app = make_app()
-    app.listen(8888, address="0.0.0.0")
-    print("Servidor em http://127.0.0.1:8888  (WebSocket: /ws)")
+    app.listen(PORT, address="0.0.0.0")
+    print(f"Servidor em http://127.0.0.1:{PORT}  (WebSocket: /ws)")
+    print(
+        f"Outros PCs/celulares na LAN: http://<IPv4-desta-maquina>:{PORT} "
+        f"(se recusar conexão, libere a porta {PORT} no Firewall do Windows — ver README.)"
+    )
     tornado.ioloop.IOLoop.current().start()
 
 
