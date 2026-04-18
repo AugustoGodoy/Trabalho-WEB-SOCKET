@@ -1,0 +1,142 @@
+"""
+Servidor WebSocket com Tornado: chat em sala única (broadcast).
+"""
+import json
+import uuid
+
+import tornado.ioloop
+import tornado.web
+import tornado.websocket
+
+
+MAX_MESSAGE_LEN = 2000
+MAX_NAME_LEN = 40
+
+
+class ChatSocketHandler(tornado.websocket.WebSocketHandler):
+    clients: set["ChatSocketHandler"] = set()
+
+    def check_origin(self, origin: str) -> bool:
+        # Permite conexões de qualquer origem em dev (ajuste em produção).
+        return True
+
+    def open(self) -> None:
+        self.client_id = str(uuid.uuid4())[:8]
+        self.display_name = f"Visitante-{self.client_id}"
+        ChatSocketHandler.clients.add(self)
+        self._broadcast(
+            {
+                "type": "system",
+                "text": f"{self.display_name} entrou na sala.",
+            }
+        )
+        self.write_message(
+            json.dumps(
+                {
+                    "type": "welcome",
+                    "clientId": self.client_id,
+                    "displayName": self.display_name,
+                }
+            )
+        )
+
+    def on_message(self, message: str | bytes) -> None:
+        if isinstance(message, bytes):
+            message = message.decode("utf-8", errors="replace")
+        if len(message) > MAX_MESSAGE_LEN:
+            self.write_message(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "text": "Mensagem muito longa.",
+                    }
+                )
+            )
+            return
+        try:
+            data = json.loads(message)
+        except json.JSONDecodeError:
+            self.write_message(
+                json.dumps({"type": "error", "text": "JSON inválido."})
+            )
+            return
+
+        msg_type = data.get("type")
+        if msg_type == "set_name":
+            name = (data.get("name") or "").strip()
+            if not name:
+                name = self.display_name
+            else:
+                name = name[:MAX_NAME_LEN]
+            old = self.display_name
+            self.display_name = name
+            self._broadcast(
+                {
+                    "type": "system",
+                    "text": f"{old} agora é {self.display_name}.",
+                }
+            )
+            return
+
+        if msg_type == "chat":
+            text = (data.get("text") or "").strip()
+            if not text:
+                return
+            self._broadcast(
+                {
+                    "type": "chat",
+                    "from": self.display_name,
+                    "text": text,
+                }
+            )
+            return
+
+        self.write_message(
+            json.dumps({"type": "error", "text": "Tipo de mensagem desconhecido."})
+        )
+
+    def on_close(self) -> None:
+        ChatSocketHandler.clients.discard(self)
+        self._broadcast(
+            {
+                "type": "system",
+                "text": f"{self.display_name} saiu da sala.",
+            }
+        )
+
+    def _broadcast(self, payload: dict) -> None:
+        raw = json.dumps(payload, ensure_ascii=False)
+        dead: list[ChatSocketHandler] = []
+        for client in ChatSocketHandler.clients:
+            try:
+                client.write_message(raw)
+            except tornado.websocket.WebSocketClosedError:
+                dead.append(client)
+        for c in dead:
+            ChatSocketHandler.clients.discard(c)
+
+
+def make_app() -> tornado.web.Application:
+    return tornado.web.Application(
+        [
+            (r"/ws", ChatSocketHandler),
+            (
+                r"/(.*)",
+                tornado.web.StaticFileHandler,
+                {"path": "static", "default_filename": "index.html"},
+            ),
+        ],
+        websocket_ping_interval=30,
+        websocket_ping_timeout=60,
+    )
+
+
+def main() -> None:
+    app = make_app()
+    app.listen(8888, address="0.0.0.0")
+    print("Servidor em http://127.0.0.1:8888  (WebSocket: /ws)")
+    tornado.ioloop.IOLoop.current().start()
+
+
+if __name__ == "__main__":
+    main()
