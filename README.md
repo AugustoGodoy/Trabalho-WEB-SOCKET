@@ -71,4 +71,3 @@ O programa vai mostrar um endereço `https://....trycloudflare.com`. Abra esse l
 | `static/index.html` | Página do chat |
 | `static/app.js` | Lógica do chat no navegador |
 | `requirements.txt` | Dependências Python |
-| `scripts/abrir_firewall_8080.bat` | Abre a porta 8080 no firewall (rodar como administrador) |
