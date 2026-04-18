@@ -42,10 +42,7 @@
         align-items: center;
         gap: 0.6rem;
       }
-      .header-icon {
-        font-size: 1.3rem;
-        line-height: 1;
-      }
+      .header-icon { font-size: 1.3rem; line-height: 1; }
       .header h1 {
         flex: 1;
         font-size: 1rem;
@@ -70,8 +67,10 @@
         border-radius: 50%;
         background: #fca5a5;
         transition: background .35s;
+        flex-shrink: 0;
       }
       .dot.online { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+      #online-count { opacity: .85; }
 
       /* ── Log ── */
       #log {
@@ -88,39 +87,61 @@
       #log::-webkit-scrollbar-track { background: transparent; }
       #log::-webkit-scrollbar-thumb { background: #c7d7fc; border-radius: 3px; }
 
-      /* mensagens */
-      .msg {
-        animation: slideIn .18s ease-out;
-      }
+      /* ── Mensagens ── */
+      .msg { animation: slideIn .18s ease-out; display: flex; flex-direction: column; }
+
       @keyframes slideIn {
         from { opacity: 0; transform: translateY(6px); }
         to   { opacity: 1; transform: translateY(0); }
       }
 
-      .bubble {
-        display: inline-block;
-        max-width: 80%;
-        padding: 0.5rem 0.85rem;
-        border-radius: 1rem;
-        font-size: 0.875rem;
-        line-height: 1.5;
-        word-break: break-word;
-      }
-      .msg-chat { display: flex; flex-direction: column; align-self: flex-start; }
-      .msg-chat .sender {
+      /* mensagens de outros (esquerda) */
+      .msg-other { align-self: flex-start; max-width: 80%; }
+      .msg-other .sender {
         font-size: 0.7rem;
         font-weight: 600;
         color: #3b82f6;
         margin-bottom: 2px;
-        padding-left: 0.25rem;
+        padding-left: 0.3rem;
       }
-      .msg-chat .bubble {
+      .msg-other .bubble {
         background: #eff6ff;
         color: #1e3a5f;
-        border-bottom-left-radius: 0.25rem;
         border: 1px solid #dbeafe;
+        border-radius: 1rem;
+        border-bottom-left-radius: 0.2rem;
       }
 
+      /* suas mensagens (direita) */
+      .msg-mine { align-self: flex-end; max-width: 80%; }
+      .msg-mine .bubble {
+        background: #2563eb;
+        color: #fff;
+        border-radius: 1rem;
+        border-bottom-right-radius: 0.2rem;
+      }
+      .msg-mine .time { color: rgba(255,255,255,.6); }
+
+      /* bolha compartilhada */
+      .bubble {
+        padding: 0.5rem 0.85rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        word-break: break-word;
+        display: flex;
+        align-items: flex-end;
+        gap: 0.5rem;
+      }
+      .bubble .text { flex: 1; }
+      .bubble .time {
+        font-size: 0.65rem;
+        color: #94a3b8;
+        white-space: nowrap;
+        flex-shrink: 0;
+        margin-bottom: 1px;
+      }
+
+      /* sistema e erro */
       .msg-system {
         align-self: center;
         font-size: 0.72rem;
@@ -137,6 +158,36 @@
         border-radius: 0.5rem;
       }
 
+      /* ── Typing indicator ── */
+      #typing-indicator {
+        height: 1.4rem;
+        padding: 0 1.1rem 0.2rem;
+        background: #f8faff;
+        font-size: 0.72rem;
+        color: #94a3b8;
+        font-style: italic;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        opacity: 0;
+        transition: opacity .2s;
+      }
+      #typing-indicator.visible { opacity: 1; }
+      .dots span {
+        display: inline-block;
+        width: 4px; height: 4px;
+        background: #94a3b8;
+        border-radius: 50%;
+        margin: 0 1px;
+        animation: bounce .9s infinite;
+      }
+      .dots span:nth-child(2) { animation-delay: .15s; }
+      .dots span:nth-child(3) { animation-delay: .30s; }
+      @keyframes bounce {
+        0%, 80%, 100% { transform: translateY(0); }
+        40%            { transform: translateY(-4px); }
+      }
+
       /* ── Rodapé / Inputs ── */
       .footer {
         padding: 1rem 1.1rem;
@@ -146,7 +197,6 @@
         flex-direction: column;
         gap: 0.65rem;
       }
-
       .field-label {
         font-size: 0.7rem;
         font-weight: 600;
@@ -155,11 +205,7 @@
         text-transform: uppercase;
         margin-bottom: 0.2rem;
       }
-
-      .row {
-        display: flex;
-        gap: 0.5rem;
-      }
+      .row { display: flex; gap: 0.5rem; }
 
       input[type="text"] {
         flex: 1;
@@ -179,7 +225,6 @@
         box-shadow: 0 0 0 3px rgba(59,130,246,.15);
       }
 
-      /* botões */
       button {
         font-family: inherit;
         font-size: 0.875rem;
@@ -190,9 +235,7 @@
         cursor: pointer;
         transition: transform .12s ease, box-shadow .15s ease, background .15s ease;
       }
-      button:active:not(:disabled) {
-        transform: scale(0.95);
-      }
+      button:active:not(:disabled) { transform: scale(0.95); }
       button:disabled { opacity: 0.45; cursor: not-allowed; }
 
       .btn-primary {
@@ -205,7 +248,6 @@
         box-shadow: 0 4px 14px rgba(37,99,235,.4);
         transform: translateY(-1px);
       }
-
       .btn-ghost {
         background: #f1f5fe;
         color: #3b82f6;
@@ -216,7 +258,6 @@
         transform: translateY(-1px);
       }
 
-      /* send row: botão mais largo em telas pequenas */
       @media (max-width: 400px) {
         .row { flex-direction: column; }
         button { width: 100%; }
@@ -232,10 +273,16 @@
         <div class="pill">
           <span class="dot" id="dot"></span>
           <span id="status-text">Desconectado</span>
+          <span id="online-count"></span>
         </div>
       </div>
 
       <div id="log" aria-live="polite"></div>
+
+      <div id="typing-indicator">
+        <span class="dots"><span></span><span></span><span></span></span>
+        <span id="typing-text"></span>
+      </div>
 
       <div class="footer">
         <div>
@@ -255,6 +302,6 @@
       </div>
 
     </div>
-    <script src="/app.js?v=3"></script>
+    <script src="/app.js?v=4"></script>
   </body>
 </html>

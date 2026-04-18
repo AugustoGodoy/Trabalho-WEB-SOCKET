@@ -31,6 +31,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             {
                 "type": "system",
                 "text": f"{self.display_name} entrou na sala.",
+                "online": len(ChatSocketHandler.clients),
             }
         )
         self.write_message(
@@ -39,6 +40,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                     "type": "welcome",
                     "clientId": self.client_id,
                     "displayName": self.display_name,
+                    "online": len(ChatSocketHandler.clients),
                 }
             )
         )
@@ -48,12 +50,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             message = message.decode("utf-8", errors="replace")
         if len(message) > MAX_MESSAGE_LEN:
             self.write_message(
-                json.dumps(
-                    {
-                        "type": "error",
-                        "text": "Mensagem muito longa.",
-                    }
-                )
+                json.dumps({"type": "error", "text": "Mensagem muito longa."})
             )
             return
         try:
@@ -65,6 +62,21 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             return
 
         msg_type = data.get("type")
+
+        if msg_type == "typing":
+            # Repassa para todos exceto o remetente
+            raw = json.dumps(
+                {"type": "typing", "name": self.display_name},
+                ensure_ascii=False,
+            )
+            for client in ChatSocketHandler.clients:
+                if client is not self:
+                    try:
+                        client.write_message(raw)
+                    except tornado.websocket.WebSocketClosedError:
+                        pass
+            return
+
         if msg_type == "set_name":
             name = (data.get("name") or "").strip()
             if not name:
@@ -77,6 +89,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 {
                     "type": "system",
                     "text": f"{old} agora é {self.display_name}.",
+                    "online": len(ChatSocketHandler.clients),
                 }
             )
             return
@@ -89,6 +102,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 {
                     "type": "chat",
                     "from": self.display_name,
+                    "clientId": self.client_id,
                     "text": text,
                 }
             )
@@ -104,6 +118,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             {
                 "type": "system",
                 "text": f"{self.display_name} saiu da sala.",
+                "online": len(ChatSocketHandler.clients),
             }
         )
 
@@ -129,8 +144,8 @@ def make_app() -> tornado.web.Application:
                 {"path": "static", "default_filename": "index.html"},
             ),
         ],
-        websocket_ping_interval=30,
-        websocket_ping_timeout=60,
+        websocket_ping_interval=25,
+        websocket_ping_timeout=20,
     )
 
 
@@ -138,10 +153,6 @@ def main() -> None:
     app = make_app()
     app.listen(PORT, address="0.0.0.0")
     print(f"Servidor em http://127.0.0.1:{PORT}  (WebSocket: /ws)")
-    print(
-        f"Outros PCs/celulares na LAN: http://<IPv4-desta-maquina>:{PORT} "
-        f"(se recusar conexão, libere a porta {PORT} no Firewall do Windows — ver README.)"
-    )
     tornado.ioloop.IOLoop.current().start()
 
 
