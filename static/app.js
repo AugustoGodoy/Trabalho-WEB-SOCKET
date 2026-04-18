@@ -2,7 +2,6 @@
   const logEl        = document.getElementById("log");
   const dotEl        = document.getElementById("dot");
   const statusText   = document.getElementById("status-text");
-  const onlineCount  = document.getElementById("online-count");
   const typingEl     = document.getElementById("typing-indicator");
   const typingText   = document.getElementById("typing-text");
   const nameInput    = document.getElementById("name");
@@ -67,10 +66,6 @@
     logEl.scrollTop = logEl.scrollHeight;
   }
 
-  function setOnline(n) {
-    if (onlineCount) onlineCount.textContent = n != null ? `· ${n} online` : "";
-  }
-
   function setConnected(connected) {
     dotEl.className        = "dot" + (connected ? " online" : "");
     statusText.textContent = connected ? "Conectado" : "Desconectado";
@@ -95,7 +90,6 @@
 
     socket.onclose = () => {
       setConnected(false);
-      setOnline(null);
       if (!intentionalClose) {
         addMessage("system", `Conexão perdida. Reconectando em ${reconnectDelay / 1000}s...`);
         setTimeout(connect, reconnectDelay);
@@ -109,8 +103,6 @@
       let data;
       try { data = JSON.parse(ev.data); }
       catch { addMessage("error", ev.data); return; }
-
-      if (data.online != null) setOnline(data.online);
 
       switch (data.type) {
         case "welcome":
