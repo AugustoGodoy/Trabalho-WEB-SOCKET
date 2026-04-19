@@ -1,23 +1,29 @@
 (function () {
-  const logEl        = document.getElementById("log");
-  const dotEl        = document.getElementById("dot");
-  const statusText   = document.getElementById("status-text");
-  const typingEl     = document.getElementById("typing-indicator");
-  const typingText   = document.getElementById("typing-text");
-  const nameInput    = document.getElementById("name");
-  const msgInput     = document.getElementById("message");
-  const btnSend      = document.getElementById("btnSend");
-  const btnName      = document.getElementById("btnName");
+  // ── Tela de boas-vindas ──
+  const welcomeScreen = document.getElementById("welcome-screen");
+  const welcomeNameInput = document.getElementById("welcome-name");
+  const btnEnter = document.getElementById("btnEnter");
+
+  // ── Chat ──
+  const chatCard    = document.getElementById("chat-card");
+  const logEl       = document.getElementById("log");
+  const dotEl       = document.getElementById("dot");
+  const statusText  = document.getElementById("status-text");
+  const typingEl    = document.getElementById("typing-indicator");
+  const typingText  = document.getElementById("typing-text");
+  const nameInput   = document.getElementById("name");
+  const msgInput    = document.getElementById("message");
+  const btnSend     = document.getElementById("btnSend");
+  const btnName     = document.getElementById("btnName");
 
   const scheme = window.location.protocol === "https:" ? "wss" : "ws";
   const wsUrl  = scheme + "://" + window.location.host + "/ws";
 
-  let socket        = null;
-  let myId          = null;
-  let myName        = null;
+  let socket         = null;
+  let myId           = null;
+  let pendingName    = null;
   let reconnectDelay = 2000;
-  let intentionalClose = false;
-  let typingTimer   = null;
+  let typingTimer    = null;
   let typingThrottle = null;
 
   function now() {
@@ -41,15 +47,12 @@
 
       const bubble = document.createElement("div");
       bubble.className = "bubble";
-
       const text = document.createElement("span");
       text.className = "text";
       text.textContent = content.text || "";
-
       const time = document.createElement("span");
       time.className = "time";
       time.textContent = now();
-
       bubble.appendChild(text);
       bubble.appendChild(time);
       wrap.appendChild(bubble);
@@ -80,21 +83,15 @@
   }
 
   function connect() {
-    intentionalClose = false;
     socket = new WebSocket(wsUrl);
 
-    socket.onopen = () => {
-      setConnected(true);
-      reconnectDelay = 2000;
-    };
+    socket.onopen = () => setConnected(true);
 
     socket.onclose = () => {
       setConnected(false);
-      if (!intentionalClose) {
-        addMessage("system", `Conexão perdida. Reconectando em ${reconnectDelay / 1000}s...`);
-        setTimeout(connect, reconnectDelay);
-        reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
-      }
+      addMessage("system", `Conexão perdida. Reconectando em ${reconnectDelay / 1000}s...`);
+      setTimeout(connect, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
     };
 
     socket.onerror = () => addMessage("error", "Erro na conexão WebSocket.");
@@ -106,10 +103,15 @@
 
       switch (data.type) {
         case "welcome":
-          myId  = data.clientId;
-          myName = data.displayName;
+          myId = data.clientId;
           nameInput.placeholder = data.displayName || "Seu apelido...";
-          addMessage("system", "Você entrou na sala.");
+          // Envia apelido escolhido na tela de boas-vindas
+          if (pendingName) {
+            socket.send(JSON.stringify({ type: "set_name", name: pendingName }));
+            pendingName = null;
+          } else {
+            addMessage("system", "Você entrou na sala.");
+          }
           break;
         case "system":
           addMessage("system", data.text || "");
@@ -129,6 +131,22 @@
     };
   }
 
+  function enterChat() {
+    const name = welcomeNameInput.value.trim();
+    pendingName = name || null;
+    if (name) nameInput.value = name;
+
+    welcomeScreen.style.display = "none";
+    chatCard.classList.add("visible");
+    connect();
+    msgInput.focus();
+  }
+
+  btnEnter.addEventListener("click", enterChat);
+  welcomeNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); enterChat(); }
+  });
+
   btnSend.addEventListener("click", () => {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const text = msgInput.value.trim();
@@ -141,18 +159,14 @@
   btnName.addEventListener("click", () => {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const name = nameInput.value.trim();
-    if (name) myName = name;
     socket.send(JSON.stringify({ type: "set_name", name }));
   });
 
   msgInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); btnSend.click(); return; }
-    // Throttle: envia "typing" no máximo 1x a cada 1.5s
     if (!typingThrottle && socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: "typing" }));
       typingThrottle = setTimeout(() => { typingThrottle = null; }, 1500);
     }
   });
-
-  connect();
 })();
