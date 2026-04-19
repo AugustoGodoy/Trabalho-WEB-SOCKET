@@ -4,9 +4,9 @@ Chat em tempo real onde qualquer mensagem enviada aparece para todo mundo que es
 
 ## Integrantes do grupo
 
-- Nome 1
-- Nome 2
-- Nome 3
+- Augusto Godoy
+- Vitor Milani
+- Henrique Gunter
 
 ## Como rodar
 
