@@ -10,28 +10,28 @@ Chat em tempo real onde qualquer mensagem enviada aparece para todo mundo que es
 
 ## Como rodar
 
-**1. Crie um ambiente virtual e instale as dependências:**
+**1. Crie e ative um ambiente virtual:**
 
 ```bash
 python -m venv .venv
 ```
 
-Ative o ambiente:
-
 - Windows (PowerShell): `.\.venv\Scripts\Activate.ps1`
 - Linux/macOS: `source .venv/bin/activate`
+
+**2. Instale as dependências:**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**2. Inicie o servidor:**
+**3. Inicie o servidor:**
 
 ```bash
 python server.py
 ```
 
-**3. Abra no navegador:**
+**4. Abra no navegador:**
 
 ```
 http://127.0.0.1:8080
