@@ -23,18 +23,18 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin: str) -> bool:
         return True
 
-    def open(self) -> None:
+    async def open(self) -> None:
         self.client_id = str(uuid.uuid4())[:8]
         self.display_name = f"Visitante-{self.client_id}"
         ChatSocketHandler.clients.add(self)
-        self._broadcast(
+        await self._broadcast(
             {
                 "type": "system",
                 "text": f"{self.display_name} entrou na sala.",
                 "online": len(ChatSocketHandler.clients),
             }
         )
-        self.write_message(
+        await self.write_message(
             json.dumps(
                 {
                     "type": "welcome",
@@ -45,18 +45,18 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             )
         )
 
-    def on_message(self, message: str | bytes) -> None:
+    async def on_message(self, message: str | bytes) -> None:
         if isinstance(message, bytes):
             message = message.decode("utf-8", errors="replace")
         if len(message) > MAX_MESSAGE_LEN:
-            self.write_message(
+            await self.write_message(
                 json.dumps({"type": "error", "text": "Mensagem muito longa."})
             )
             return
         try:
             data = json.loads(message)
         except json.JSONDecodeError:
-            self.write_message(
+            await self.write_message(
                 json.dumps({"type": "error", "text": "JSON inválido."})
             )
             return
@@ -72,7 +72,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             for client in ChatSocketHandler.clients:
                 if client is not self:
                     try:
-                        client.write_message(raw)
+                        await client.write_message(raw)
                     except tornado.websocket.WebSocketClosedError:
                         pass
             return
@@ -85,7 +85,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 name = name[:MAX_NAME_LEN]
             old = self.display_name
             self.display_name = name
-            self._broadcast(
+            await self._broadcast(
                 {
                     "type": "system",
                     "text": f"{old} agora é {self.display_name}.",
@@ -98,7 +98,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             text = (data.get("text") or "").strip()
             if not text:
                 return
-            self._broadcast(
+            await self._broadcast(
                 {
                     "type": "chat",
                     "from": self.display_name,
@@ -108,13 +108,13 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             )
             return
 
-        self.write_message(
+        await self.write_message(
             json.dumps({"type": "error", "text": "Tipo de mensagem desconhecido."})
         )
 
-    def on_close(self) -> None:
+    async def on_close(self) -> None:
         ChatSocketHandler.clients.discard(self)
-        self._broadcast(
+        await self._broadcast(
             {
                 "type": "system",
                 "text": f"{self.display_name} saiu da sala.",
@@ -122,12 +122,12 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             }
         )
 
-    def _broadcast(self, payload: dict) -> None:
+    async def _broadcast(self, payload: dict) -> None:
         raw = json.dumps(payload, ensure_ascii=False)
         dead: list[ChatSocketHandler] = []
         for client in ChatSocketHandler.clients:
             try:
-                client.write_message(raw)
+                await client.write_message(raw)
             except tornado.websocket.WebSocketClosedError:
                 dead.append(client)
         for c in dead:
